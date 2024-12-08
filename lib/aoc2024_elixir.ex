@@ -138,3 +138,165 @@ defmodule Aoc2024Elixir.Day2 do
     end)
   end
 end
+
+defmodule Aoc2024Elixir.Day3 do
+  def testdata do
+    "xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))"
+  end
+
+  def testdata2 do
+    "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))"
+  end
+
+  def part1(input) do
+    Regex.scan(~r"mul\((\d+),(\d+)\)", input)
+    |> Stream.map(fn match ->
+      [_, a, b] = match
+      String.to_integer(a) * String.to_integer(b)
+    end)
+    |> Enum.sum
+  end
+
+  def part2(input) do
+    _parse_instructions(input)
+    |> Enum.reduce({0, true}, fn instruction, state ->
+      {value, doing} = state
+      case instruction do
+        [:do] -> {value, true}
+        [:dont] -> {value, false}
+        [:mul, a, b] -> if doing do
+          {value + (a * b), true}
+        else
+          {value, false}
+        end
+      end
+    end)
+  end
+
+  defp _parse_instructions(input) do
+    pattern = ~r"mul\((\d+),(\d+)\)|do\(\)|don't\(\)"
+    Regex.scan(pattern, input)
+    |> Enum.map(fn match ->
+      {instruction, args} = List.pop_at(match, 0)
+      args = Enum.map(args, &String.to_integer/1)
+      cond do
+        String.starts_with?(instruction, "mul") -> [:mul] ++ args
+        instruction == "do()" -> [:do]
+        instruction == "don't()" -> [:dont]
+      end
+    end)
+  end
+end
+
+defmodule Aoc2024Elixir.Day4 do
+  def testdata do
+    """
+    MMMSXXMASS
+    MSAMXMSMSA
+    AMXSXMAAMM
+    MSAMASMSMX
+    XMASAMXAMM
+    XXAMMXXAMA
+    SMSMSASXSS
+    SAXAMASAAA
+    MAMMMXMMMM
+    MXMXAXMASX
+    """
+  end
+
+
+  def part1(input) do
+    grid = _parse_input(input)
+    {width, height} = _grid_dimensions(grid)
+    word = [:X, :M, :A, :S]
+    for y <- 0..(height-1), x <- 0..(width-1) do
+      _possible_directions(word, width, height, x, y)
+      |> Stream.map(fn direction ->
+        _find_word(grid, x, y, word, direction)
+        |> tap(fn found ->
+          if _get_at(grid, x, y) == :X do
+            IO.inspect(found, label: inspect({x, y, direction}))
+          end
+        end)
+      end)
+      |> Enum.count(& &1)
+    end
+    |> Enum.sum
+  end
+
+  defp _directions do
+    [
+      [:north],
+      [:north, :east],
+      [:east],
+      [:south, :east],
+      [:south],
+      [:south, :west],
+      [:west],
+      [:north, :west]
+    ]
+  end
+
+  defp _possible_directions(word, width, height, x, y) do
+    word_length = length(word)
+    possible_cardinals =
+      (if y - word_length + 1 >= 0, do: [:north], else: []) ++
+      (if y + word_length < height, do: [:south], else: []) ++
+      (if x - word_length + 1 >= 0, do: [:west], else: []) ++
+      (if x + word_length < width, do: [:east], else: [])
+    Enum.filter(_directions(), fn direction ->
+      Enum.all?(direction, & &1 in possible_cardinals)
+    end)
+  end
+
+  defp _grid_dimensions(grid) do
+    height = length(grid)
+    width = length(Enum.at(grid, 0))
+    {width, height}
+  end
+
+  defp _get_at(grid, x, y) do
+    Enum.at(grid, y)
+    |> Enum.at(x)
+  end
+
+  defp _find_word(grid, x, y, word, direction) do
+    {letter, rest} = List.pop_at(word, 0)
+    cell_letter = _get_at(grid, x, y)
+    if letter != cell_letter do
+      false
+    else
+      if rest == [] do
+        true
+      else
+        new_x = cond do
+          :west in direction -> x - 1
+          :east in direction -> x + 1
+          true -> x
+        end
+        new_y = cond do
+          :north in direction -> y - 1
+          :south in direction -> y + 1
+          true -> y
+        end
+        _find_word(grid, new_x, new_y, rest, direction)
+      end
+    end
+  end
+
+  defp _parse_input(input) do
+    String.trim(input)
+    |> String.split("\n")
+    |> Stream.map(&String.to_charlist/1)
+    |> Enum.map(fn charlist ->
+      Enum.map(charlist, fn char ->
+        case char do
+          88 -> :X
+          77 -> :M
+          65 -> :A
+          83 -> :S
+        end
+      end)
+    end)
+  end
+end
