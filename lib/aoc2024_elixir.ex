@@ -14,18 +14,19 @@ defmodule Aoc2024Elixir.Day1 do
   def part1(input) do
     _parse_input(input)
     |> Stream.map(&Enum.sort/1)
-    |> Stream.zip
+    |> Stream.zip()
     |> Stream.map(fn p ->
       {a, b} = p
       abs(a - b)
     end)
-    |> Enum.reduce(0, & &1 + &2)
+    |> Enum.reduce(0, &(&1 + &2))
   end
 
-  @spec part2(binary())::integer()
+  @spec part2(binary()) :: integer()
   def part2(input) do
-    [list_a, list_b] = _parse_input(input) |> Enum.to_list
+    [list_a, list_b] = _parse_input(input) |> Enum.to_list()
     list_b_counts = Enum.frequencies(list_b)
+
     Enum.reduce(list_a, 0, fn i, acc ->
       acc + i * Map.get(list_b_counts, i, 0)
     end)
@@ -37,7 +38,7 @@ defmodule Aoc2024Elixir.Day1 do
     |> Stream.flat_map(&String.split(&1, "   "))
     |> Stream.map(&String.to_integer/1)
     |> Stream.chunk_every(2)
-    |> Stream.zip
+    |> Stream.zip()
     |> Stream.map(&Tuple.to_list/1)
   end
 end
@@ -55,6 +56,7 @@ defmodule Aoc2024Elixir.Day2 do
     2 5 6 8 6
     """
   end
+
   @spec part1(binary()) :: non_neg_integer()
   def part1(input) do
     _parse_input(input)
@@ -75,6 +77,7 @@ defmodule Aoc2024Elixir.Day2 do
 
   defp _test_line(line, correction) do
     line_valid = _test_line_impl(line)
+
     if not line_valid and correction < 1 do
       _possible_corrections(line)
       |> Enum.any?(fn corrected_line ->
@@ -87,6 +90,7 @@ defmodule Aoc2024Elixir.Day2 do
 
   defp _test_line_impl(line) do
     direction = _line_direction(line)
+
     if direction == :zero do
       false
     else
@@ -99,6 +103,7 @@ defmodule Aoc2024Elixir.Day2 do
 
   defp _line_direction(line) do
     [a, b] = Enum.take(line, 2)
+
     cond do
       a < b -> :increasing
       b < a -> :decreasing
@@ -109,9 +114,11 @@ defmodule Aoc2024Elixir.Day2 do
   defp _test_pair(pair, direction) do
     {a, b} = pair
     d = a - b
+
     if d == 0 do
-      :false
+      false
     end
+
     case direction do
       :increasing -> -4 < d and d < 0
       :decreasing -> 0 < d and d < 4
@@ -128,7 +135,7 @@ defmodule Aoc2024Elixir.Day2 do
   end
 
   defp _pairwise(list) do
-    Stream.zip(list, Stream.take(list, -length(list)+1))
+    Stream.zip(list, Stream.take(list, -length(list) + 1))
   end
 
   defp _possible_corrections(list) do
@@ -154,31 +161,39 @@ defmodule Aoc2024Elixir.Day3 do
       [_, a, b] = match
       String.to_integer(a) * String.to_integer(b)
     end)
-    |> Enum.sum
+    |> Enum.sum()
   end
 
   def part2(input) do
     _parse_instructions(input)
     |> Enum.reduce({0, true}, fn instruction, state ->
       {value, doing} = state
+
       case instruction do
-        [:do] -> {value, true}
-        [:dont] -> {value, false}
-        [:mul, a, b] -> if doing do
-          {value + (a * b), true}
-        else
+        [:do] ->
+          {value, true}
+
+        [:dont] ->
           {value, false}
-        end
+
+        [:mul, a, b] ->
+          if doing do
+            {value + a * b, true}
+          else
+            {value, false}
+          end
       end
     end)
   end
 
   defp _parse_instructions(input) do
     pattern = ~r"mul\((\d+),(\d+)\)|do\(\)|don't\(\)"
+
     Regex.scan(pattern, input)
     |> Enum.map(fn match ->
       {instruction, args} = List.pop_at(match, 0)
       args = Enum.map(args, &String.to_integer/1)
+
       cond do
         String.starts_with?(instruction, "mul") -> [:mul] ++ args
         instruction == "do()" -> [:do]
@@ -191,7 +206,7 @@ end
 defmodule Aoc2024Elixir.Day4 do
   def testdata do
     """
-    MMMSXXMASS
+    MMMSXXMASM
     MSAMXMSMSA
     AMXSXMAAMM
     MSAMASMSMX
@@ -204,84 +219,219 @@ defmodule Aoc2024Elixir.Day4 do
     """
   end
 
+  defmodule Vector do
+    defstruct x: 0, y: 0
+
+    def new(x, y) do
+      %Vector{x: x, y: y}
+    end
+
+    def add(a, b) do
+      %Vector{x: a.x + b.x, y: a.y + b.y}
+    end
+
+    def negate(v) do
+      %Vector{x: -v.x, y: -v.y}
+    end
+
+    def mul(v, i) do
+      %Vector{x: v.x * i, y: v.y * i}
+    end
+
+    def zero() do
+      %Vector{x: 0, y: 0}
+    end
+  end
+
+  defmodule Grid do
+    defstruct size: %Vector{x: 0, y: 0},
+              _rows: []
+
+    @spec new(list()) :: %Aoc2024Elixir.Day4.Grid{
+            _rows: list(),
+            size: %Aoc2024Elixir.Day4.Vector{x: non_neg_integer(), y: non_neg_integer()}
+          }
+    def new(rows) do
+      size = %Vector{
+        y: length(rows),
+        x: length(Enum.at(rows, 0))
+      }
+
+      %Grid{size: size, _rows: rows}
+    end
+
+    def get_at(grid, pos) do
+      Enum.at(grid._rows, pos.y)
+      |> Enum.at(pos.x)
+    end
+
+    def contains_pos(grid, pos) do
+      0 <= pos.x and pos.x < grid.size.x and 0 <= pos.y and pos.y < grid.size.y
+    end
+
+    def get_row_values(grid, row) do
+      Stream.map(row, &get_at(grid, &1))
+    end
+
+    def get_row_coords(grid, isect, dir) do
+      Stream.resource(
+        fn ->
+          start_dir = Vector.negate(dir)
+          find_edge(grid, isect, start_dir)
+        end,
+        fn pos ->
+          if contains_pos(grid, pos) do
+            {[pos], Vector.add(pos, dir)}
+          else
+            {:halt, nil}
+          end
+        end,
+        fn _ ->
+          nil
+        end
+      )
+    end
+
+    def find_edge(grid, pos, dir) do
+      x_dist =
+        cond do
+          # Ensure that x direction isn't selected.
+          dir.x == 0 -> grid.size.y + 1
+          dir.x == 1 -> grid.size.x - pos.x - 1
+          dir.x == -1 -> pos.x
+        end
+
+      y_dist =
+        cond do
+          # Ensure that y direction isn't selected.
+          dir.y == 0 -> grid.size.x + 1
+          dir.y == 1 -> grid.size.y - pos.y - 1
+          dir.y == -1 -> pos.y
+        end
+
+      nearest_dist = Enum.sort([x_dist, y_dist]) |> List.first()
+      diff = Vector.mul(dir, nearest_dist)
+      Vector.add(pos, diff)
+    end
+  end
 
   def part1(input) do
-    grid = _parse_input(input)
-    {width, height} = _grid_dimensions(grid)
+    grid = Grid.new(_parse_input(input))
     word = [:X, :M, :A, :S]
-    for y <- 0..(height-1), x <- 0..(width-1) do
-      _possible_directions(word, width, height, x, y)
-      |> Stream.map(fn direction ->
-        _find_word(grid, x, y, word, direction)
-        |> tap(fn found ->
-          if _get_at(grid, x, y) == :X do
-            IO.inspect(found, label: inspect({x, y, direction}))
-          end
-        end)
-      end)
-      |> Enum.count(& &1)
-    end
-    |> Enum.sum
-  end
 
-  defp _directions do
-    [
-      [:north],
-      [:north, :east],
-      [:east],
-      [:south, :east],
-      [:south],
-      [:south, :west],
-      [:west],
-      [:north, :west]
-    ]
-  end
-
-  defp _possible_directions(word, width, height, x, y) do
-    word_length = length(word)
-    possible_cardinals =
-      (if y - word_length + 1 >= 0, do: [:north], else: []) ++
-      (if y + word_length < height, do: [:south], else: []) ++
-      (if x - word_length + 1 >= 0, do: [:west], else: []) ++
-      (if x + word_length < width, do: [:east], else: [])
-    Enum.filter(_directions(), fn direction ->
-      Enum.all?(direction, & &1 in possible_cardinals)
+    all_row_coords_p1(grid)
+    |> Stream.map(fn row ->
+      Grid.get_row_values(grid, row)
     end)
+    |> Stream.map(&count_word_in_row(&1, word))
+    |> Enum.sum()
   end
 
-  defp _grid_dimensions(grid) do
-    height = length(grid)
-    width = length(Enum.at(grid, 0))
-    {width, height}
-  end
+  def part2(input) do
+    grid = Grid.new(_parse_input(input))
 
-  defp _get_at(grid, x, y) do
-    Enum.at(grid, y)
-    |> Enum.at(x)
-  end
+    for x <- 1..(grid.size.x - 2),
+        y <- 1..(grid.size.y - 2) do
+      eks = get_eks_at(grid, Vector.new(x, y))
 
-  defp _find_word(grid, x, y, word, direction) do
-    {letter, rest} = List.pop_at(word, 0)
-    cell_letter = _get_at(grid, x, y)
-    if letter != cell_letter do
-      false
-    else
-      if rest == [] do
-        true
+      if eks.c == :A do
+        nesw = [eks.ne, eks.sw]
+        nwse = [eks.nw, eks.se]
+
+        if :M in nesw and :S in nesw and :M in nwse and :S in nwse do
+          1
+        else
+          0
+        end
       else
-        new_x = cond do
-          :west in direction -> x - 1
-          :east in direction -> x + 1
-          true -> x
-        end
-        new_y = cond do
-          :north in direction -> y - 1
-          :south in direction -> y + 1
-          true -> y
-        end
-        _find_word(grid, new_x, new_y, rest, direction)
+        0
       end
     end
+    |> Enum.sum()
+  end
+
+  def get_eks_at(grid, pos) do
+    %{
+      c: Grid.get_at(grid, pos),
+      nw: Grid.get_at(grid, Vector.add(pos, Vector.new(-1, -1))),
+      ne: Grid.get_at(grid, Vector.add(pos, Vector.new(1, -1))),
+      sw: Grid.get_at(grid, Vector.add(pos, Vector.new(-1, 1))),
+      se: Grid.get_at(grid, Vector.add(pos, Vector.new(1, 1)))
+    }
+  end
+
+  def all_row_coords_p1(grid) do
+    gsx = grid.size.x - 1
+    gsy = grid.size.y - 1
+
+    east_west =
+      0..gsy |> Stream.map(&Grid.get_row_coords(grid, Vector.new(0, &1), Vector.new(1, 0)))
+
+    west_east =
+      0..gsy |> Stream.map(&Grid.get_row_coords(grid, Vector.new(0, &1), Vector.new(-1, 0)))
+
+    north_south =
+      0..gsx |> Stream.map(&Grid.get_row_coords(grid, Vector.new(&1, 0), Vector.new(0, 1)))
+
+    south_north =
+      0..gsx |> Stream.map(&Grid.get_row_coords(grid, Vector.new(&1, 0), Vector.new(0, -1)))
+
+    northwest_southeast =
+      0..(gsx + gsy)
+      |> Stream.map(
+        &Grid.get_row_coords(
+          grid,
+          Vector.new(min(&1, gsx), min(gsy, gsx + gsy - &1)),
+          Vector.new(1, 1)
+        )
+      )
+
+    southeast_northwest =
+      0..(gsx + gsy)
+      |> Stream.map(
+        &Grid.get_row_coords(
+          grid,
+          Vector.new(min(&1, gsx), min(gsy, gsx + gsy - &1)),
+          Vector.new(-1, -1)
+        )
+      )
+
+    southwest_northeast =
+      0..(gsx + gsy)
+      |> Stream.map(
+        &Grid.get_row_coords(
+          grid,
+          Vector.new(min(&1, gsx), max(0, &1 - gsx)),
+          Vector.new(1, -1)
+        )
+      )
+
+    northeast_southwest =
+      0..(gsx + gsy)
+      |> Stream.map(
+        &Grid.get_row_coords(
+          grid,
+          Vector.new(min(&1, gsx), max(0, &1 - gsx)),
+          Vector.new(-1, 1)
+        )
+      )
+
+    Stream.concat([
+      east_west,
+      west_east,
+      north_south,
+      south_north,
+      northwest_southeast,
+      southeast_northwest,
+      northeast_southwest,
+      southwest_northeast
+    ])
+  end
+
+  def count_word_in_row(row, word) do
+    Stream.chunk_every(row, length(word), 1)
+    |> Stream.filter(&(&1 == word))
+    |> Enum.count()
   end
 
   defp _parse_input(input) do
